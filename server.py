@@ -1,8 +1,9 @@
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+#!/usr/bin/env python3
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import broadlink, configparser
-import sys, getopt
-import time, binascii
-import netaddr
+import sys
+import time
 import settings
 import signal
 import socket
@@ -10,7 +11,6 @@ import errno
 import json
 import shutil
 from os import path
-from Crypto.Cipher import AES
 
 class Server(HTTPServer):
     def get_request(self):
@@ -73,19 +73,19 @@ class Handler(BaseHTTPRequestHandler):
                 print ("TRY %s != %s" % (GlobalPassword, password))
         except NameError:
                 return self.password_required()
-        print ("LSE %s != %s" % (GlobalPassword, parameters['password']))
+        print ("LSE %s != %s" % (GlobalPassword, password))
         self.password_required()
 
     def password_required(self):
         response = "Password required from %s" % self.client_address[0]
-        self.wfile.write('''{ "error": "%s" }''' % response)
+        self.wfile.write(bytes('''{ "error": "%s" }''' % response, encoding='utf8'))
         print (response)
         self.close_connection = 1
         return False
 
     def access_denied(self):
         response = "Client %s is not allowed!" % self.client_address[0]
-        self.wfile.write('''{ "error": "%s" }''' % response)
+        self.wfile.write(bytes('''{ "error": "%s" }''' % response, encoding='utf8'))
         print (response)
         self.close_connection = 1
         return False
@@ -204,11 +204,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             response = "Failed"
         if "Failed" in response:
-            self.wfile.write('''{ "error": "%s" }''' % response)
+            self.wfile.write(bytes('''{ "error": "%s" }''' % response, encoding='utf8'))
         elif "Sent" in response:
-            self.wfile.write('''{ "ok": "%s" }''' % response)
+            self.wfile.write(bytes('''{ "ok": "%s" }''' % response, encoding='utf8'))
         else:
-            self.wfile.write (response);
+            self.wfile.write (bytes(response, encoding='utf8'));
         print ("\t"+response)
 
 def listCommand():
@@ -234,9 +234,6 @@ def sendCommand(commandName,deviceName):
     else:
         device = DeviceByName[deviceName];
         serviceName = deviceName + ' Commands'
-
-    deviceKey = device.key
-    deviceIV = device.iv
 
     if settingsFile.has_option(serviceName, commandName):
         commandFromSettings = settingsFile.get(serviceName, commandName)
@@ -272,11 +269,9 @@ def sendCommand(commandName,deviceName):
                     sendCommand(command,deviceName)
 
             return True
-        decodedCommand = binascii.unhexlify(commandFromSettings)
-        AESEncryption = AES.new(str(deviceKey), AES.MODE_CBC, str(deviceIV))
-        encodedCommand = AESEncryption.encrypt(str(decodedCommand))
+        decodedCommand = bytes.fromhex(commandFromSettings)
 
-        finalCommand = encodedCommand[0x04:]
+        finalCommand = decodedCommand[0x04:]
 
     try:
         device.send_data(finalCommand)
@@ -299,9 +294,6 @@ def learnCommand(commandName, deviceName=None):
 
     print ("Waiting %d seconds to capture command" % GlobalTimeout)
 
-    deviceKey = device.key
-    deviceIV = device.iv
-
     device.enter_learning()
     time.sleep(GlobalTimeout)
     LearnedCommand = device.check_data()
@@ -313,8 +305,7 @@ def learnCommand(commandName, deviceName=None):
     AdditionalData = bytearray([0x00, 0x00, 0x00, 0x00])
     finalCommand = AdditionalData + LearnedCommand
 
-    AESEncryption = AES.new(str(deviceKey), AES.MODE_CBC, str(deviceIV))
-    decodedCommand = binascii.hexlify(AESEncryption.decrypt(str(finalCommand)))
+    decodedCommand = finalCommand.hex()
 
     backupSettings()
     try:
@@ -325,7 +316,7 @@ def learnCommand(commandName, deviceName=None):
         settingsFile.write(broadlinkControlIniFile)
         broadlinkControlIniFile.close()
         return True
-    except StandardError as e:
+    except Exception as e:
         print("Error writing settings file: %s" % e)
         restoreSettings()
         return False
@@ -345,7 +336,7 @@ def setStatus(commandName, status, deviceName=None):
         settingsFile.write(broadlinkControlIniFile)
         broadlinkControlIniFile.close()
         return True
-    except StandardError as e:
+    except Exception as e:
         print ("Error writing settings file: %s" % e)
         restoreSettings()
         return False
@@ -390,7 +381,7 @@ def backupSettings():
     shutil.copy2(settings.settingsINI,settings.settingsINI+".bak")
 
 def restoreSettings():
-    if os.path.isfile(settings.settingsINI+".bak"):
+    if path.isfile(settings.settingsINI+".bak"):
         shutil.copy2(settings.settingsINI+".bak",settings.settingsINI)
     else:
         print ("Can't find backup to restore!  Refusing to make this worse!")
@@ -462,6 +453,7 @@ def readSettingsFile():
 
     if Autodetect == True:
         print ("Beginning device auto-detection ... ")
+
         # Try to support multi-homed broadcast better
         try:
             devices = broadlink.discover(DiscoverTimeout,listen_address,broadcast_address)
@@ -493,28 +485,40 @@ def readSettingsFile():
                 print ("%s: Found %s on %s (%s) type: %s" % (device.hostname, device.type, device.host, hexmac, hex(device.devtype)))
             settingsFile.write(broadlinkControlIniFile)
             broadlinkControlIniFile.close()
-        except StandardError as e:
+        except Exception as e:
             print ("Error writing settings file: %s" % e)
             restoreSettings()
     else:
         devices = []
     if settings.DevList:
         for devname in settings.DevList:
-            if Dev[devname,'Type'] == 'RM' or Dev[devname,'Type'] == 'RM2':
+            if Dev[devname,'Type'] == 'RM4MINI':
+                device = broadlink.rm4mini((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4MINIB':
+                device = broadlink.rm4minib((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4PRO':
+                device = broadlink.rm4pro((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4':
+                device = broadlink.rm4((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RMMINI':
+                device = broadlink.rmmini((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RMPRO':
+                device = broadlink.rmpro((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM' or Dev[devname,'Type'] == 'RM2':
                 device = broadlink.rm((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'MP1':
+            elif Dev[devname,'Type'] == 'MP1':
                 device = broadlink.mp1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'SP1':
+            elif Dev[devname,'Type'] == 'SP1':
                 device = broadlink.sp1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'SP2':
+            elif Dev[devname,'Type'] == 'SP2':
                 device = broadlink.sp2((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'A1':
+            elif Dev[devname,'Type'] == 'A1':
                 device = broadlink.a1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'HYSEN':
+            elif Dev[devname,'Type'] == 'HYSEN':
                 device = broadlink.hysen((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'S1C':
+            elif Dev[devname,'Type'] == 'S1C':
                 device = broadlink.S1C((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'DOOYA':
+            elif Dev[devname,'Type'] == 'DOOYA':
                 device = broadlink.dooya((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
             device.timeout = Dev[devname,'Timeout']
             if not devname in DeviceByName:
@@ -547,5 +551,3 @@ if __name__ == "__main__":
         serverParams = readSettingsFile()
         InterruptRequested = False
         start(**serverParams)
-        if not ShutdownRequested:
-            reload(settings)
