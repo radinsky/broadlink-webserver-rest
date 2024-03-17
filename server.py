@@ -492,21 +492,33 @@ def readSettingsFile():
         devices = []
     if settings.DevList:
         for devname in settings.DevList:
-            if Dev[devname,'Type'] == 'RM' or Dev[devname,'Type'] == 'RM2':
+            if Dev[devname,'Type'] == 'RM4MINI':
+                device = broadlink.rm4mini((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4MINIB':
+                device = broadlink.rm4minib((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4PRO':
+                device = broadlink.rm4pro((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM4':
+                device = broadlink.rm4((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RMMINI':
+                device = broadlink.rmmini((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RMPRO':
+                device = broadlink.rmpro((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
+            elif Dev[devname,'Type'] == 'RM' or Dev[devname,'Type'] == 'RM2':
                 device = broadlink.rm((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'MP1':
+            elif Dev[devname,'Type'] == 'MP1':
                 device = broadlink.mp1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'SP1':
+            elif Dev[devname,'Type'] == 'SP1':
                 device = broadlink.sp1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'SP2':
+            elif Dev[devname,'Type'] == 'SP2':
                 device = broadlink.sp2((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'A1':
+            elif Dev[devname,'Type'] == 'A1':
                 device = broadlink.a1((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'HYSEN':
+            elif Dev[devname,'Type'] == 'HYSEN':
                 device = broadlink.hysen((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'S1C':
+            elif Dev[devname,'Type'] == 'S1C':
                 device = broadlink.S1C((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
-            if Dev[devname,'Type'] == 'DOOYA':
+            elif Dev[devname,'Type'] == 'DOOYA':
                 device = broadlink.dooya((Dev[devname,'IPAddress'], 80), Dev[devname,'MACAddress'], Dev[devname,'Device'])
             device.timeout = Dev[devname,'Timeout']
             if not devname in DeviceByName:
